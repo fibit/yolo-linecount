@@ -1,0 +1,6 @@
+torch
+torchvision
+ultralytics
+trackers
+supervision
+ffmpegcv

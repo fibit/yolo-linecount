@@ -1,0 +1,12 @@
+__pycache__/
+.venv/
+
+outputs/*
+!outputs/.gitkeep
+
+models/*
+!models/.gitkeep
+
+*.json
+*.env
+*.log

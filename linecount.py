@@ -66,8 +66,9 @@ def readc(paths: str) -> Cnfig:
 
 
 class Count:
-    def __init__(self, cnfig: Cnfig) -> None:
+    def __init__(self, cnfig: Cnfig, previ: bool = False) -> None:
         self.cnfig = cnfig
+        self.previ = previ
         self._mkdir()
         self.isnet = self._isnet(cnfig.input)
         self.msrce = cnfig.model if self._isnet(cnfig.model) else str(MODLS / cnfig.model)
@@ -114,6 +115,11 @@ class Count:
 
                 backs = 1.0
                 orgnl, annot = self._stepp(frame.copy())
+                if self.previ:
+                    cv2.imshow("preview", annot)
+                    if (cv2.waitKey(1) & 0xFF) in (27, ord("q")):
+                        logging.info("Preview stopped by user")
+                        break
                 counr += 1
                 if counr >= SNAPS:
                     self._savei("last_original.jpg", orgnl)
@@ -124,6 +130,8 @@ class Count:
                 self._stopr()
             elif self.captr is not None:
                 self.captr.release()
+            if self.previ:
+                cv2.destroyAllWindows()
 
     def _startr(self) -> None:
         self._dropq()
@@ -316,8 +324,9 @@ class Count:
 
 
 def argum() -> argparse.Namespace:
-    argpr = argparse.ArgumentParser(description="Line crossing counter")
-    argpr.add_argument("--config", dest="confg", required=True, help="Path to config.json")
+    argpr = argparse.ArgumentParser(description="Line crossing counter", usage="linecount.py [-h] --config config.json [--preview]")
+    argpr.add_argument("--config", dest="confg", metavar="config.json", required=True, help="Path to config.json")
+    argpr.add_argument("--preview", dest="previ", action="store_true", required=False, help="Show video preview")
     return argpr.parse_args()
 
 
@@ -327,7 +336,8 @@ def start() -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
     )
     try:
-        count = Count(readc(argum().confg))
+        args = argum()
+        count = Count(cnfig=readc(args.confg), previ=args.previ)
         count.runit()
     except KeyboardInterrupt:
         logging.info("Interrupted by user")

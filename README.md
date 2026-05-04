@@ -166,9 +166,19 @@ cp config.json.example config.json
 
 ## ▶️ Запуск
 
+Базовый запуск:
+
 ```bash
 python linecount.py --config config.json
 ```
+
+С предпросмотром видео:
+
+```bash
+python linecount.py --config config.json --preview
+```
+
+В режиме предпросмотра для остановки нажмите `q` или `Esc`.
 
 ## 📊 Результаты в `outputs/<output>/`
 

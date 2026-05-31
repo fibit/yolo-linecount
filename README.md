@@ -46,7 +46,7 @@
 
 ## 🚀 Опционально: TensorRT
 
-TensorRT нужен, если модель запускается локально на NVIDIA GPU и хочется получить больше скорости. При экспорте YOLO в `.engine` модель оптимизируется под конкретную видеокарту: инференс обычно быстрее, а нагрузка на CPU ниже.
+[TensorRT](https://developer.nvidia.com/tensorrt/download/) нужен, если модель запускается локально на NVIDIA GPU и хочется получить больше скорости. При экспорте YOLO в `.engine` модель оптимизируется под конкретную видеокарту: инференс обычно быстрее, а нагрузка на CPU ниже.
 
 Сначала установите Python wheel TensorRT:
 
@@ -57,7 +57,7 @@ pip install "/path/to/TensorRT/python/tensorrt-<version>-cp<pyver>-none-<platfor
 Экспортируйте модель в TensorRT:
 
 ```bash
-yolo export model=./models/yolo26n.pt format=engine half device=0
+yolo export model=./models/yolo26n.pt format=engine imgsz=320 half device=0
 ```
 
 После успешного экспорта появится файл:

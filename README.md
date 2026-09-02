@@ -15,7 +15,7 @@
 - TensorRT, если хотите запускать локальную модель через `.engine`;
 - Docker с доступом к GPU, если хотите запускать модель через Triton.
 
-`requirements-cuda.txt` использует PyTorch wheels из индекса `https://download.pytorch.org/whl/cu130`. Если нужна другая версия CUDA, замените индекс на подходящий из PyTorch.
+`requirements-cuda.txt` использует PyTorch wheels из индекса `https://download.pytorch.org/whl/cu130`. Если нужна другая версия CUDA, замените индекс на подходящий из PyTorch. Версии зависимостей зафиксированы точными пинами для воспроизводимости — при обновлении меняйте их в `requirements-*.txt`.
 
 ## 🛠️ Установка
 
@@ -42,7 +42,7 @@
    pip install -r requirements-cuda.txt # CUDA
    ```
 
-4. Поместите файл модели в папку `models/` (например, `models/yolo26n.pt`).
+5. Поместите файл модели в папку `models/` (например, `models/yolo26n.pt`).
 
 ## 🚀 Опционально: TensorRT
 

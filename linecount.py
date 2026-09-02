@@ -76,7 +76,7 @@ class Count:
         self.trakr = ByteTrackTracker()
         self.zones = self._linez()
         self.boxan, self.laban, self.linan = self._anots()
-        self.captr = self._captu(cnfig.input, cnfig.scale)
+        self.captr = self._openc(cnfig.input)
         self.framq: queue.Queue[tuple[bool, np.ndarray | None]] = queue.Queue(maxsize=10)
         self.rstop = threading.Event()
         self.rthrd: threading.Thread | None = None
@@ -95,7 +95,7 @@ class Count:
                         ready, frame = self._readt(READT)
                     else:
                         ready, frame = self.captr.read()
-                except (TimeoutError, RuntimeError, ValueError) as error:
+                except Exception as error:
                     if self.isnet:
                         logging.warning("Capture stalled, reconnecting stream: %s", error)
                         self._reconn(sourc, backs)
@@ -155,10 +155,22 @@ class Count:
             self.rthrd.join(timeout=1.0)
             self.rthrd = None
 
+    def _openc(self, sourc: str | int) -> object:
+        if not self.isnet:
+            return self._captu(sourc, self.cnfig.scale)
+        backs = 1.0
+        while True:
+            try:
+                return self._captu(sourc, self.cnfig.scale)
+            except Exception as error:
+                logging.warning("Stream open failed, retrying: %s", error)
+                time.sleep(backs)
+                backs = min(backs * 2.0, BACKM)
+
     def _reconn(self, sourc: str | int, backs: float) -> None:
         self._stopr()
         time.sleep(backs)
-        self.captr = self._captu(sourc, self.cnfig.scale)
+        self.captr = self._openc(sourc)
         self._startr()
 
     def _readt(self, touts: float | None) -> tuple[bool, np.ndarray | None]:
@@ -349,7 +361,7 @@ def start() -> None:
         count.runit()
     except KeyboardInterrupt:
         logging.info("Interrupted by user")
-    except (RuntimeError, ValueError, FileNotFoundError) as error:
+    except Exception as error:
         logging.exception("Runtime error: %s", error)
 
 

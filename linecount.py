@@ -77,7 +77,7 @@ class Count:
         self.zones = self._linez()
         self.boxan, self.laban, self.linan = self._anots()
         self.captr = self._captu(cnfig.input, cnfig.scale)
-        self.framq: queue.Queue[tuple[bool, np.ndarray | None]] = queue.Queue(maxsize=1)
+        self.framq: queue.Queue[tuple[bool, np.ndarray | None]] = queue.Queue(maxsize=10)
         self.rstop = threading.Event()
         self.rthrd: threading.Thread | None = None
         self.rderr: Exception | None = None
@@ -241,21 +241,29 @@ class Count:
             except Exception as error:
                 if rstop.is_set():
                     break
+
                 self.rderr = error
-                ready, frame = False, None
+
+                try:
+                    self.framq.put((False, None), timeout=1.0)
+                except queue.Full:
+                    pass
+                break
 
             if rstop.is_set():
                 break
 
-            if self.framq.full():
+            if not ready or frame is None:
                 try:
-                    self.framq.get_nowait()
-                except queue.Empty:
+                    self.framq.put((False, None), timeout=1.0)
+                except queue.Full:
                     pass
-            self.framq.put((ready, frame))
-
-            if not ready:
                 break
+
+            try:
+                self.framq.put((True, frame), timeout=1.0)
+            except queue.Full:
+                logging.warning("Frame queue full — detector is slower")
 
     def _dropq(self) -> None:
         while True:
@@ -275,7 +283,7 @@ class Count:
         return sv.LineZone(
             start=sv.Point(*self.cnfig.linea),
             end=sv.Point(*self.cnfig.lineb),
-            minimum_crossing_threshold=4,
+            minimum_crossing_threshold=2
         )
 
     def _dayfp(self) -> Path:
@@ -290,7 +298,7 @@ class Count:
     def _captu(sourc: str | int, scale: int) -> object:
         setup = {"resize": (scale, scale), "resize_keepratio": True}
         if Count._isnet(sourc):
-            return ffmpegcv.ReadLiveLast(ffmpegcv.VideoCaptureStreamRT, sourc, **setup)
+            return ffmpegcv.VideoCaptureStreamRT(sourc, **setup)
         elif isinstance(sourc, int) or (isinstance(sourc, str) and not Path(sourc).exists()):
             return ffmpegcv.VideoCaptureCAM(sourc, **setup)
         else:

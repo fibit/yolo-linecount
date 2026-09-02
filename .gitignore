@@ -1,12 +1,17 @@
 __pycache__/
 .venv/
 
-outputs/*
-!outputs/.gitkeep
+configs/*
+!configs/.gitkeep
 
 models/*
 !models/.gitkeep
 
+outputs/*
+!outputs/.gitkeep
+
 *.json
 *.env
 *.log
+*.mp4
+*.avi

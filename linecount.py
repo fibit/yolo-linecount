@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import queue
+import subprocess
 import threading
 import time
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ OUTPT = Path("outputs")  # Counter output directory
 SNAPS = 60  # Save latest frames every N processed frames
 READT = 8.0  # Seconds to wait for a network frame before reconnect
 BACKM = 30.0  # Max reconnect backoff in seconds
+STOPT = 3.0  # Seconds to wait for FFmpeg to stop
 
 
 @dataclass(frozen=True)
@@ -86,6 +88,7 @@ class Count:
         counr = 0
         backs = 1.0
         sourc = self.cnfig.input
+        logging.info("Counter started: %s", self.cnfig.place)
         try:
             if self.isnet:
                 self._startr()
@@ -132,6 +135,7 @@ class Count:
                 self.captr.release()
             if self.previ:
                 cv2.destroyAllWindows()
+            logging.info("Counter stopped: %s", self.cnfig.place)
 
     def _startr(self) -> None:
         self._dropq()
@@ -143,35 +147,71 @@ class Count:
             daemon=True,
         )
         self.rthrd.start()
+        logging.info("Capture reader started")
 
     def _stopr(self) -> None:
         self.rstop.set()
+
+        procs = getattr(self.captr, "process", None)
+        if procs is not None and procs.poll() is None:
+            logging.info("Stopping FFmpeg process")
+            try:
+                procs.terminate()
+                procs.wait(timeout=STOPT)
+                logging.info("FFmpeg process stopped")
+            except subprocess.TimeoutExpired:
+                logging.warning("FFmpeg did not stop, killing process")
+                procs.kill()
+                procs.wait(timeout=STOPT)
+                logging.info("FFmpeg process killed")
+
+        if self.rthrd is not None:
+            self.rthrd.join(timeout=STOPT)
+            if self.rthrd.is_alive():
+                raise RuntimeError("Capture reader did not stop")
+            self.rthrd = None
+            logging.info("Capture reader stopped")
+
         if self.captr is not None:
             try:
                 self.captr.release()
             except Exception:
                 pass
-        if self.rthrd is not None:
-            self.rthrd.join(timeout=1.0)
-            self.rthrd = None
 
     def _openc(self, sourc: str | int) -> object:
         if not self.isnet:
             return self._captu(sourc, self.cnfig.scale)
+        attem = 1
         backs = 1.0
         while True:
             try:
-                return self._captu(sourc, self.cnfig.scale)
+                captr = self._captu(sourc, self.cnfig.scale)
+                logging.info("Stream probe succeeded on attempt %d", attem)
+                return captr
             except Exception as error:
-                logging.warning("Stream open failed, retrying: %s", error)
+                if isinstance(error, subprocess.TimeoutExpired):
+                    errms = "timeout"
+                elif isinstance(error, subprocess.CalledProcessError):
+                    errms = f"ffprobe exit code {error.returncode}"
+                else:
+                    errms = type(error).__name__
+                logging.warning(
+                    "Stream open attempt %d failed (%s), retrying in %.1f seconds",
+                    attem,
+                    errms,
+                    backs,
+                )
                 time.sleep(backs)
+                attem += 1
                 backs = min(backs * 2.0, BACKM)
 
     def _reconn(self, sourc: str | int, backs: float) -> None:
         self._stopr()
+        logging.info("Reconnecting stream in %.1f seconds", backs)
         time.sleep(backs)
         self.captr = self._openc(sourc)
         self._startr()
+        logging.info("Stream reconnected")
 
     def _readt(self, touts: float | None) -> tuple[bool, np.ndarray | None]:
         if self.rderr is not None:
@@ -310,7 +350,7 @@ class Count:
     def _captu(sourc: str | int, scale: int) -> object:
         setup = {"resize": (scale, scale), "resize_keepratio": True}
         if Count._isnet(sourc):
-            return ffmpegcv.VideoCaptureStreamRT(sourc, **setup)
+            return ffmpegcv.VideoCaptureStreamRT(sourc, timeout=READT, **setup)
         elif isinstance(sourc, int) or (isinstance(sourc, str) and not Path(sourc).exists()):
             return ffmpegcv.VideoCaptureCAM(sourc, **setup)
         else:

@@ -1,0 +1,9 @@
+{
+    "model": "yolo26n.pt",
+    "source": "rtsp://USER:PASSWORD@HOST:554/live/sub",
+    "resize": 320,
+    "line_start": [160, 320],
+    "line_end": [160, 0],
+    "classes": [0],
+    "output": "cam1"
+}
